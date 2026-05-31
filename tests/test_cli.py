@@ -15,6 +15,7 @@ class RepoToAiBriefTests(unittest.TestCase):
             brief = build_brief(str(root))
         self.assertEqual(brief["file_count"], 2)
         self.assertIn("README.md", brief["important_files"])
+        self.assertIn("README.md", brief["tree"])
 
     def test_json_output_contains_extensions(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -22,6 +23,27 @@ class RepoToAiBriefTests(unittest.TestCase):
             (root / "a.py").write_text("print(1)\n", encoding="utf-8")
             payload = json.loads(run(str(root), "json"))
         self.assertEqual(payload["extensions"][".py"], 1)
+
+    def test_ignore_patterns_skip_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "keep.py").write_text("print(1)\n", encoding="utf-8")
+            (root / "skip.log").write_text("noise\n", encoding="utf-8")
+
+            brief = build_brief(str(root), ignore_patterns=["*.log"])
+
+        self.assertEqual(brief["file_count"], 1)
+        self.assertEqual(brief["tree"], ["keep.py"])
+
+    def test_markdown_output_contains_snippets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "README.md").write_text("# Demo\n", encoding="utf-8")
+
+            output = run(str(root), "markdown", max_chars=80)
+
+        self.assertIn("# AI Repository Brief", output)
+        self.assertIn("Selected snippets:", output)
 
 
 if __name__ == "__main__":

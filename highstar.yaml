@@ -3,6 +3,10 @@ one_liner: Compress a repository into an AI-friendly brief.
 target_user: Developers using coding agents
 pain_point: Coding agents need concise repository context before editing.
 demo_command: PYTHONPATH=src python3 -m repo_to_ai_brief examples/sample_repo
+tier: flagship
+maturity_status: polished-2026-05-31
+next_release: v0.2.0
+polish_score: 88
 topics:
   - ai-tools
   - coding-agents
