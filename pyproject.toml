@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "repo-to-ai-brief"
-version = "0.2.0"
-description = "Compress a repository into an AI-friendly brief."
+version = "0.2.1"
+description = "Generate reviewable coding-agent briefs from repositories."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }

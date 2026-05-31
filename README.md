@@ -1,12 +1,18 @@
 # Repo To AI Brief
 
-Compress a repository into an AI-friendly brief.
+Generate a reviewable coding-agent brief from a repository, with tree, manifests, snippets, ignore rules, and an optional changed-files view.
+
+For developers using Codex, Claude Code, Cursor, Copilot, OpenCode, or Gemini CLI who want to give an agent just enough repo context before an edit.
+
+```bash
+PYTHONPATH=src python3 -m repo_to_ai_brief examples/sample_repo --max-files 8 --max-chars 1200
+```
 
 ## Why
 
-Coding agents work better when they start with a concise map of files, manifests, README headings, and snippets.
+Coding agents work better when they start with a concise map of the repository. Full repo packers are useful when you want maximum context; this tool focuses on a smaller, auditable brief you can read before pasting into an agent.
 
-This is a flagship HighStar AI developer tool: dependency-light, local-first, and built around one quick command.
+Repo To AI Brief is dependency-light and local-first. It respects `.gitignore` by default, supports explicit ignore patterns, and can summarize only files changed in `git status`.
 
 ## Install
 
@@ -30,6 +36,12 @@ Human-readable output:
 PYTHONPATH=src python3 -m repo_to_ai_brief examples/sample_repo --max-files 8 --max-chars 1200
 ```
 
+Changed files only:
+
+```bash
+PYTHONPATH=src python3 -m repo_to_ai_brief . --changed-only --max-files 12 --max-chars 2000
+```
+
 Machine-readable output:
 
 ```bash
@@ -40,6 +52,7 @@ PYTHONPATH=src python3 -m repo_to_ai_brief examples/sample_repo --format json
 
 - `PYTHONPATH=src python3 -m repo_to_ai_brief --help`
 - Main demo: `PYTHONPATH=src python3 -m repo_to_ai_brief examples/sample_repo --max-files 8 --max-chars 1200`
+- Changed-only demo: `PYTHONPATH=src python3 -m repo_to_ai_brief . --changed-only --max-files 12 --max-chars 2000`
 - CI gate: `PYTHONPATH=src python3 -m unittest discover -s tests`
 
 ## Features
@@ -50,6 +63,9 @@ PYTHONPATH=src python3 -m repo_to_ai_brief examples/sample_repo --format json
 - Extension counts
 - Budgeted text snippets
 - Repeatable ignore patterns
+- `.gitignore` loading by default
+- `--changed-only` for coding-agent review context
+- Suggested coding-agent prompt template
 
 ## API
 
@@ -63,7 +79,13 @@ Use the CLI first. Import the Python functions when you want to embed the same b
 
 ## Why Star This
 
-It is a simple bridge between raw repositories and coding-agent context windows.
+Star this if you want a small, inspectable repo-to-context bridge instead of a black-box context dump.
+
+## Related Tools
+
+- Pair with `agent-trace-summarizer` when an incident report needs repo context.
+- Pair with `prompt-drift-watch` when instruction changes need a focused review.
+- Use before asking a coding agent to edit a repo.
 
 ## Roadmap
 

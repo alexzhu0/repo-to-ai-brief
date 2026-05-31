@@ -1,4 +1,5 @@
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -64,6 +65,30 @@ class RepoToAiBriefTests(unittest.TestCase):
 
         self.assertEqual(payload["char_budget"], 40)
         self.assertEqual(payload["tree"], ["README.md"])
+
+    def test_gitignore_patterns_are_loaded_by_default(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".gitignore").write_text("private\n", encoding="utf-8")
+            (root / "README.md").write_text("# Demo\n", encoding="utf-8")
+            (root / "private").mkdir()
+            (root / "private" / "secret.txt").write_text("secret\n", encoding="utf-8")
+
+            brief = build_brief(str(root))
+
+        self.assertEqual(brief["tree"], [".gitignore", "README.md"])
+
+    def test_changed_only_uses_git_status(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "tracked.py").write_text("print('tracked')\n", encoding="utf-8")
+            (root / "new.py").write_text("print('new')\n", encoding="utf-8")
+            subprocess.run(["git", "init"], cwd=str(root), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
+            subprocess.run(["git", "add", "tracked.py"], cwd=str(root), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
+
+            brief = build_brief(str(root), changed_only=True)
+
+        self.assertIn("new.py", brief["tree"])
 
 
 if __name__ == "__main__":

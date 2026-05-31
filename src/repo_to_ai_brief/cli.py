@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
@@ -18,9 +19,57 @@ def ignored(path: Path, root: Path, ignore_patterns: Sequence[str]) -> bool:
     return any(fnmatch.fnmatch(relative, pattern) or fnmatch.fnmatch(path.name, pattern) for pattern in ignore_patterns)
 
 
-def iter_files(root: Path, ignore_patterns: Sequence[str] = ()) -> List[Path]:
+def load_gitignore_patterns(root: Path) -> List[str]:
+    path = root / ".gitignore"
+    if not path.exists():
+        return []
+    patterns = []
+    for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            pattern = line.rstrip("/")
+            patterns.append(pattern)
+            if "*" not in pattern:
+                patterns.append(f"{pattern}/*")
+    return patterns
+
+
+def changed_files(root: Path) -> List[Path]:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "status", "--short"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
     files = []
-    for path in root.rglob("*"):
+    for line in result.stdout.splitlines():
+        if not line.strip():
+            continue
+        relative = line[3:].strip()
+        if " -> " in relative:
+            relative = relative.split(" -> ", 1)[1]
+        path = root / relative
+        if path.is_file():
+            files.append(path)
+    return sorted(files)
+
+
+def iter_files(
+    root: Path,
+    ignore_patterns: Sequence[str] = (),
+    changed_only: bool = False,
+) -> List[Path]:
+    if changed_only:
+        candidates = changed_files(root)
+    else:
+        candidates = [path for path in root.rglob("*") if path.is_file()]
+    files = []
+    for path in candidates:
         if any(part in SKIP_DIRS for part in path.parts):
             continue
         if path.is_file() and not ignored(path, root, ignore_patterns):
@@ -59,9 +108,14 @@ def build_brief(
     max_files: int = 20,
     max_chars: int = 800,
     ignore_patterns: Sequence[str] = (),
+    use_gitignore: bool = True,
+    changed_only: bool = False,
 ) -> Dict[str, Any]:
     root = Path(root_path)
-    files = iter_files(root, ignore_patterns)
+    combined_ignores = list(ignore_patterns)
+    if use_gitignore:
+        combined_ignores.extend(load_gitignore_patterns(root))
+    files = iter_files(root, combined_ignores, changed_only=changed_only)
     extensions: Dict[str, int] = {}
     for path in files:
         suffix = path.suffix or "(none)"
@@ -78,11 +132,17 @@ def build_brief(
         "root": str(root),
         "file_count": len(files),
         "char_budget": max_chars,
+        "changed_only": changed_only,
+        "ignore_patterns": combined_ignores,
         "extensions": dict(sorted(extensions.items())),
         "important_files": important,
         "readme_headings": read_headings(root / "README.md"),
         "tree": build_tree(root, files),
         "snippets": snippets,
+        "prompt_template": (
+            "Use this brief as repository context. First identify the likely edit surface, "
+            "then propose the smallest safe change, then list tests to run."
+        ),
     }
 
 
@@ -93,6 +153,7 @@ def format_text(brief: Dict[str, Any]) -> str:
         f"Root: {brief['root']}",
         f"Files: {brief['file_count']}",
         f"Character budget: {brief['char_budget']}",
+        f"Changed only: {brief['changed_only']}",
         "",
         "Important files:",
     ]
@@ -103,6 +164,7 @@ def format_text(brief: Dict[str, Any]) -> str:
     lines.extend(f"- {heading}" for heading in brief["readme_headings"]) if brief["readme_headings"] else lines.append("- none")
     lines.extend(["", "Tree:"])
     lines.extend(f"- {item}" for item in brief["tree"]) if brief["tree"] else lines.append("- none")
+    lines.extend(["", "Suggested coding-agent prompt:", "", brief["prompt_template"]])
     if brief["snippets"]:
         lines.extend(["", "Selected snippets:"])
         for name, snippet in brief["snippets"].items():
@@ -116,8 +178,17 @@ def run(
     max_files: int = 20,
     max_chars: int = 800,
     ignore_patterns: Sequence[str] = (),
+    use_gitignore: bool = True,
+    changed_only: bool = False,
 ) -> str:
-    brief = build_brief(input_path, max_files=max_files, max_chars=max_chars, ignore_patterns=ignore_patterns)
+    brief = build_brief(
+        input_path,
+        max_files=max_files,
+        max_chars=max_chars,
+        ignore_patterns=ignore_patterns,
+        use_gitignore=use_gitignore,
+        changed_only=changed_only,
+    )
     if output_format == "json":
         return json.dumps(brief, indent=2, sort_keys=True)
     return format_text(brief)
@@ -130,12 +201,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-files", type=int, default=20)
     parser.add_argument("--max-chars", type=int, default=800)
     parser.add_argument("--ignore", action="append", default=[], help="Glob pattern to skip; can be repeated")
+    parser.add_argument("--no-gitignore", action="store_true", help="Do not load ignore patterns from .gitignore")
+    parser.add_argument("--changed-only", action="store_true", help="Include only files reported by git status --short")
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    print(run(args.input, args.format, max_files=args.max_files, max_chars=args.max_chars, ignore_patterns=args.ignore))
+    print(
+        run(
+            args.input,
+            args.format,
+            max_files=args.max_files,
+            max_chars=args.max_chars,
+            ignore_patterns=args.ignore,
+            use_gitignore=not args.no_gitignore,
+            changed_only=args.changed_only,
+        )
+    )
     return 0
 
 
