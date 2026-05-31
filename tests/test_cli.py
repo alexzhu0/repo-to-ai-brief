@@ -45,6 +45,26 @@ class RepoToAiBriefTests(unittest.TestCase):
         self.assertIn("# AI Repository Brief", output)
         self.assertIn("Selected snippets:", output)
 
+    def test_max_files_limits_selected_snippets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "a.py").write_text("print('a')\n", encoding="utf-8")
+            (root / "b.py").write_text("print('b')\n", encoding="utf-8")
+
+            brief = build_brief(str(root), max_files=1, max_chars=80)
+
+        self.assertEqual(len(brief["snippets"]), 1)
+
+    def test_json_output_includes_budget_and_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "README.md").write_text("# Demo\n", encoding="utf-8")
+
+            payload = json.loads(run(str(root), "json", max_chars=40))
+
+        self.assertEqual(payload["char_budget"], 40)
+        self.assertEqual(payload["tree"], ["README.md"])
+
 
 if __name__ == "__main__":
     unittest.main()
