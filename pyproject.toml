@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "repo-to-ai-brief"
+version = "0.1.0"
+description = "Compress a repository into an AI-friendly brief."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "alexzhu0" }]
+keywords = ["ai-tools", "coding-agents", "developer-tools", "cli", "llm", "repository"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Software Development"
+]
+
+[project.scripts]
+repo-to-ai-brief = "repo_to_ai_brief.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
